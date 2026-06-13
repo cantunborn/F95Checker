@@ -320,6 +320,8 @@ class FileDownload:
 
     cancel: bool = False
     state: State = State.Preparing
+    start: Timestamp = time.time()
+    current:  Timestamp = time.time()
     extracted: pathlib.Path = None
     error: str = None
     traceback: str = None
@@ -859,7 +861,6 @@ class Settings:
     quick_filters               : bool
     refresh_archived_games      : bool
     refresh_completed_games     : bool
-    render_when_unfocused       : bool
     request_timeout             : int
     rpc_enabled                 : bool
     rpdl_password               : str

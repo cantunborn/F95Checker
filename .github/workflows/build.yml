@@ -118,25 +118,14 @@ jobs:
           mkdir ./dist/
           mv ./build/*.app/ ./dist/
 
-      - name: "Resolve symlinks (Linux, macOS)"
-        if: "runner.os != 'Windows'"
-        run: |
-          cd ./dist/
-          find ./ -type l -exec echo Resolving {} \; -exec sed -i '' {} \;
-
-      # - name: "Import codesign certificate (macOS)"
-      #   if: "runner.os == 'macOS'"
-      #   uses: "apple-actions/import-codesign-certs@v7"
-      #   with:
-      #     p12-file-base64: "${{ secrets.CODESIGN_P12_BASE64 }}"
-      #     p12-password: "${{ secrets.CODESIGN_P12_PASSWORD }}"
-
-      # - name: "Codesign (macOS)"
-      #   if: "runner.os == 'macOS'"
-      #   run: |
-      #     cd ./dist/
-      #     find ./ -type f -empty -delete
-      #     codesign -s "${{ secrets.CODESIGN_P12_NAME }}" --deep ./*.app
+          # Qt looks up its paths via CFBundleGetBundleWithIdentifier, which returns NULL
+          # for flat dylibs (not framework bundles). CFBundleCopyBundleURL(NULL) crashes
+          # in __CFCheckCFInfoPACSignature. Providing qt.conf bypasses the CFBundle lookup.
+          mkdir $(echo ./dist/*.app)/Contents/Helpers/QtWebEngineProcess.app/Contents/Resources/
+          cat << EOF > $(echo ./dist/*.app)/Contents/Helpers/QtWebEngineProcess.app/Contents/Resources/qt.conf
+          [Paths]
+          Prefix = ../../../Resources/lib/PyQt6/Qt6
+          EOF
 
       - name: "Bundle astcenc+compressonator (Windows)"
         if: "runner.os == 'Windows'"
@@ -154,11 +143,6 @@ jobs:
           7z x compressonatorcli.zip
           rm -rf compressonatorcli-*/{documents,images}
           mv ./compressonatorcli-*/ ./dist/lib/compressonator/
-          if [ "$(head -n 1 ./dist/lib/compressonator/compressonatorcli)" = "" ]; then
-            tail -n +2 ./dist/lib/compressonator/compressonatorcli > ./dist/lib/compressonator/compressonatorcli.new
-            mv ./dist/lib/compressonator/compressonatorcli.new ./dist/lib/compressonator/compressonatorcli
-            chmod +x ./dist/lib/compressonator/compressonatorcli
-          fi
 
       - name: "Bundle astcenc+compressonator (Linux)"
         if: "runner.os == 'Linux'"
@@ -172,6 +156,11 @@ jobs:
           tar xzf compressonatorcli.tar.gz
           rm -rf compressonatorcli-*/{documents,images}
           mv ./compressonatorcli-*/ ./dist/lib/compressonator/
+          if [ "$(head -n 1 ./dist/lib/compressonator/compressonatorcli)" = "" ]; then
+            tail -n +2 ./dist/lib/compressonator/compressonatorcli > ./dist/lib/compressonator/compressonatorcli.new
+            mv ./dist/lib/compressonator/compressonatorcli.new ./dist/lib/compressonator/compressonatorcli
+          fi
+          chmod +x ./dist/lib/compressonator/compressonatorcli
 
       - name: "Bundle astcenc (macOS)"
         if: "runner.os == 'macOS'"
@@ -180,6 +169,26 @@ jobs:
           7z x astcenc-universal.zip
           mkdir $(echo ./dist/*.app)/Contents/Resources/lib/astcenc/
           mv ./bin/astcenc ./dist/*.app/Contents/Resources/lib/astcenc/
+
+      - name: "Resolve symlinks (Linux)"
+        if: "runner.os == 'Linux'"
+        run: |
+          cd ./dist/
+          find ./ -type l -exec echo Resolving {} \; -exec sed -i '' {} \;
+
+      # - name: "Import codesign certificate (macOS)"
+      #   if: "runner.os == 'macOS'"
+      #   uses: "apple-actions/import-codesign-certs@v7"
+      #   with:
+      #     p12-file-base64: "${{ secrets.CODESIGN_P12_BASE64 }}"
+      #     p12-password: "${{ secrets.CODESIGN_P12_PASSWORD }}"
+
+      # - name: "Codesign (macOS)"
+      #   if: "runner.os == 'macOS'"
+      #   run: |
+      #     cd ./dist/
+      #     find ./ -type f -empty -delete
+      #     codesign -s "${{ secrets.CODESIGN_P12_NAME }}" --deep ./*.app
 
       # === ARTIFACT ===
 
